@@ -1,0 +1,46 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [claude/verbo-game-spec-17odth]
+  workflow_dispatch: {}
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        env:
+          # Supabase anon/publishable key is meant to be public (it ends up
+          # in the bundled JS either way) — safe to keep here rather than
+          # requiring repo secrets just to get a build running.
+          VITE_SUPABASE_URL: https://qfkkunzgumsoweffmyoi.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFma2t1bnpndW1zb3dlZmZteW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODc2MDcsImV4cCI6MjA4NzM2MzYwN30.0O8a6bzXEw836MirmRKZqPH4EUYogsjM7bK5nnA9vYA
+        run: npm run build
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: verbo-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
